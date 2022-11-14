@@ -12,14 +12,11 @@ constexpr const char *MQTT_TOPIC = "muddescapes-esp/test";
 
 // Declare variables: 
 // These will be set by input voltage to ESP:
-bool led_status = false;
-bool button_status = false;
+bool completed_puzzle = false;
+bool electromagnet_monitor = HIGH;
 
 // This is an internal variable for me to keep track of what should be happening
-bool led_is_on = false;
-
-// This is an internal variable allowing me to create a "latch" from a button
-bool pressed = false;
+bool bookshelf_locked = true;
 
 // BEGIN TEMPLATE CODE (DO NOT CHANGE)
 
@@ -43,7 +40,7 @@ static void mqtt_cb_message(esp_mqtt_event_handle_t event) {
         Serial.println("ignoring incomplete message (too long)");
         return;
     }
-    Serial.printf("message arrived on topic %.*s: %.*s\n", event->topic_len, event->topic, event->data_len, event->data);
+    // Serial.printf("message arrived on topic %.*s: %.*s\n", event->topic_len, event->topic, event->data_len, event->data);
     
     // END TEMPLATE CODE
 
@@ -59,16 +56,24 @@ static void mqtt_cb_message(esp_mqtt_event_handle_t event) {
 
     // Here, if we receive this specific string that will be outputted from control-center, it overrides my local variables turn_on_led
 
-    if (strncmp(event->data, "set led-status {on, off} status=on", event->data_len) == 0) {
-        Serial.printf("Received command: led-status on");
-        // esp_mqtt_client_publish(event->client, MQTT_TOPIC, "Received override led-status on", 0, 0, 0);
-        led_is_on = true;
+    if (strncmp(event->data, "set bookshelf_locked {locked, unlocked} status=unlocked", event->data_len) == 0) {
+        Serial.println("Received command: unlock bookshelf");
+        bookshelf_locked = false;
     }
 
-    if (strncmp(event->data, "set led-status {on, off} status=off", event->data_len) == 0) {
-        Serial.printf("Received command: led-status off");
-        // esp_mqtt_client_publish(event->client, MQTT_TOPIC, "Received override led-status off", 0, 0, 0);
-        led_is_on = false;
+    if (strncmp(event->data, "set bookshelf_locked {locked, unlocked} status=locked", event->data_len) == 0) {
+        Serial.println("Received command: lock bookshelf");
+        bookshelf_locked = true;
+    }
+
+    if (strncmp(event->data, "set completed_puzzle {yes, no} status=yes", event->data_len) == 0) {
+        Serial.println("Received command: manually complete bookshelf puzzle");
+        completed_puzzle = true;
+    }
+
+    if (strncmp(event->data, "set completed_puzzle {yes, no} status=no", event->data_len) == 0) {
+        Serial.println("Received command: reset bookshelf puzzle");
+        completed_puzzle = false;
     }
 }
 
@@ -88,9 +93,10 @@ void setup() {
 
     // For Arduinos, we have to specify which pins are inputs and outputs. Be sure to check the ESP-32 Huzzah Pinout to see which pins can be I/O and which are digital/analog
 
-    pinMode(27,INPUT); // button input monitor
-    pinMode(14,INPUT); // led status monitor
-    pinMode(33, OUTPUT); // led lighter upper
+    // insert inputs to actual puzzle here    
+    pinMode(27, INPUT); //puzzle completer
+    pinMode(21, OUTPUT); // electromagnet unlocker/locker
+    pinMode(14, INPUT); // electromagnet monitor
 
     // CUSTOM CODE END
 
@@ -118,14 +124,24 @@ void loop() {
     // CUSTOM CODE FOR YOUR PUZZLE BEGIN: 
     // This is simply Arduino code. You can look up lots of tutorials for this stuff! 
 
-    led_status = digitalRead(14);
-    button_status = digitalRead(27);
+    electromagnet_monitor = digitalRead(14);
 
-    if (led_is_on) {
-        digitalWrite(33, HIGH);
+    if (digitalRead(27)) {
+        completed_puzzle = true;
+    }
+
+    if (!bookshelf_locked) {
+        digitalWrite(21, LOW);
     }
     else {
-        digitalWrite(33, LOW);
+        digitalWrite(21, HIGH);
+
+        if (completed_puzzle) {
+            bookshelf_locked = false;
+        }
+        else {
+            bookshelf_locked = true;
+        }
     }
 
     // Serial print for debugging
@@ -140,38 +156,38 @@ void loop() {
     // "variable-name {option1, option2} status=currentstatus"
     // in order for it to show up correctly on control center
 
-    String message1 = "led-status {on, off} status=";
-    if(led_status) {
-        message1 = message1 + "on";
+    String message1 = "completed_puzzle {yes, no} status=";
+    if(completed_puzzle) {
+        message1 = message1 + "yes";
     }
     else {
-        message1 = message1 + "off";
+        message1 = message1 + "no";
     }
 
-    String message2 = "button_status {pressed, unpressed} status=";
-    if(button_status) {
-        message2 = message2 + "pressed";
-
-        if (!pressed){
-            led_is_on = !led_is_on; // toggle LED if button was pressed again (after being unpressed)
-        }
-        
-        pressed = true;
+    String message2 = "electromagnet_monitor {HIGH, LOW} status=";
+    if(electromagnet_monitor) {
+        message2 = message2 + "HIGH";
     }
     else {
-        message2 = message2 + "unpressed";
+        message2 = message2 + "LOW";
+    }
 
-        pressed = false;
+    String message3 = "bookshelf_locked {locked, unlocked} status=";
+    if(bookshelf_locked) {
+        message3 = message3 + "locked";
+    }
+    else {
+        message3 = message3 + "unlocked";
     }
     
-    // put your main code here, to run repeatedly:
-    if (millis() - msg_time > 500 && client) { //change the value here to change how often it publishes
+    if (millis() - msg_time > 200 && client) { //change the value here to change how often it publishes
         msg_time = millis();
         Serial.println("publishing message");
 
         // Sending our created MQTT strings to the internet. Copy the line below for as many messages as you have. 
         esp_mqtt_client_enqueue(client, MQTT_TOPIC, message1.c_str(), message1.length(), 0, 0, true);
         esp_mqtt_client_enqueue(client, MQTT_TOPIC, message2.c_str(), message2.length(), 0, 0, true);
+        esp_mqtt_client_enqueue(client, MQTT_TOPIC, message3.c_str(), message3.length(), 0, 0, true);
     }
 
     // CUSTOM CODE END
