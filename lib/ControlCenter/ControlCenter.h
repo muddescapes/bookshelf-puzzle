@@ -19,7 +19,8 @@ class Variable {
         }
 
         String message = name + " {" + options + "} status=" + status;
-        esp_mqtt_client_enqueue(client, topic, message.c_str(), message.length(), 0, 0, true);
+        // send variable updates with qos 2
+        esp_mqtt_client_enqueue(client, topic, message.c_str(), message.length(), 2, 0, true);
         prev_status = status;
     }
 };

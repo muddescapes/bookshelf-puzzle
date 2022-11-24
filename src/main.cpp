@@ -184,14 +184,13 @@ void loop() {
     var_bookshelf_locked.update(bookshelf_locked ? "locked" : "unlocked");
     var_fpga.update(FPGA_status ? "HIGH" : "LOW");
 
-    if (millis() - msg_time > 500 && client) { //change the value here to change how often it publishes
+    if (millis() - msg_time > 1000 && client) { //change the value here to change how often it publishes
         msg_time = millis();
-        Serial.println("publishing message");
+        Serial.println("publishing heartbeat");
 
         // Sending our created MQTT strings to the internet. Copy the line below for as many messages as you have. 
         String message("alive {yes} status=yes");
         esp_mqtt_client_enqueue(client, MQTT_TOPIC, message.c_str(), message.length(), 0, 0, true);
-
     }
 
     // CUSTOM CODE END
