@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <ESPHelper.h>
+#include <ControlCenter.h>
 #include <mqtt_client.h>
 
 // Connect to Claremont-ETC wifi
@@ -100,6 +101,10 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
 unsigned int msg_time = 0;
 esp_mqtt_client_handle_t client = NULL;
+ControlCenter::Variable var_completed_puzzle(client, "completed_puzzle", "yes, no", MQTT_TOPIC);
+ControlCenter::Variable var_electromagnet_monitor(client, "electromagnet_monitor", "HIGH, LOW", MQTT_TOPIC);
+ControlCenter::Variable var_bookshelf_locked(client, "bookshelf_locked", "locked, unlocked", MQTT_TOPIC);
+ControlCenter::Variable var_fpga(client, "FPGA", "HIGH, LOW", MQTT_TOPIC);
 
 void setup() {
     Serial.begin(115200);
@@ -174,14 +179,7 @@ void loop() {
     // Creation of message for MQTT. The format of an MQTT message must be: 
     // "variable-name {option1, option2} status=currentstatus"
     // in order for it to show up correctly on control center
-
-    String message1 = "completed_puzzle {yes, no} status=";
-    if(completed_puzzle) {
-        message1 = message1 + "yes";
-    }
-    else {
-        message1 = message1 + "no";
-    }
+    var_completed_puzzle.update(completed_puzzle ? "yes" : "no");
 
     String message2 = "electromagnet_monitor {HIGH, LOW} status=";
     if(electromagnet_monitor) {
@@ -212,7 +210,6 @@ void loop() {
         Serial.println("publishing message");
 
         // Sending our created MQTT strings to the internet. Copy the line below for as many messages as you have. 
-        esp_mqtt_client_enqueue(client, MQTT_TOPIC, message1.c_str(), message1.length(), 0, 0, true);
         esp_mqtt_client_enqueue(client, MQTT_TOPIC, message2.c_str(), message2.length(), 0, 0, true);
         esp_mqtt_client_enqueue(client, MQTT_TOPIC, message3.c_str(), message3.length(), 0, 0, true);
         esp_mqtt_client_enqueue(client, MQTT_TOPIC, message4.c_str(), message4.length(), 0, 0, true);
