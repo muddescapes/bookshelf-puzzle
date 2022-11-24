@@ -17,6 +17,7 @@ bool electromagnet_monitor = HIGH;
 
 // This is an internal variable for me to keep track of what should be happening
 bool bookshelf_locked = true;
+bool FPGA_status = HIGH;
 
 // BEGIN TEMPLATE CODE (DO NOT CHANGE)
 
@@ -75,6 +76,20 @@ static void mqtt_cb_message(esp_mqtt_event_handle_t event) {
         Serial.println("Received command: reset bookshelf puzzle");
         completed_puzzle = false;
     }
+
+    if (strncmp(event->data, "set FPGA {HIGH, LOW} status=HIGH", event->data_len) == 0) {
+        Serial.println("Received command: make FPGA high");
+        digitalWrite(33, HIGH);
+        FPGA_status = HIGH;
+    }
+
+    if (strncmp(event->data, "set FPGA {HIGH, LOW} status=LOW", event->data_len) == 0) {
+        Serial.println("Received command: Reset FPGA");
+        digitalWrite(33, LOW);
+        delay(100);
+        digitalWrite(33, HIGH);
+        FPGA_status = HIGH;
+    }
 }
 
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data) {
@@ -97,6 +112,7 @@ void setup() {
     pinMode(27, INPUT); //puzzle completer
     pinMode(21, OUTPUT); // electromagnet unlocker/locker
     pinMode(14, INPUT); // electromagnet monitor
+    pinMode(33, OUTPUT); // reset Cristian's FPGA
 
     // CUSTOM CODE END
 
@@ -117,6 +133,9 @@ void setup() {
     ESP_ERROR_CHECK(esp_mqtt_client_start(client));
 
     msg_time = millis();
+
+    digitalWrite(33, LOW);
+    digitalWrite(33, HIGH);
 }
 
 void loop() {
@@ -179,6 +198,14 @@ void loop() {
     else {
         message3 = message3 + "unlocked";
     }
+
+    String message4 = "FPGA {HIGH, LOW} status=";
+    if(FPGA_status) {
+        message4 = message4 + "HIGH";
+    }
+    else {
+        message4 = message4 + "LOW";
+    }
     
     if (millis() - msg_time > 200 && client) { //change the value here to change how often it publishes
         msg_time = millis();
@@ -188,6 +215,8 @@ void loop() {
         esp_mqtt_client_enqueue(client, MQTT_TOPIC, message1.c_str(), message1.length(), 0, 0, true);
         esp_mqtt_client_enqueue(client, MQTT_TOPIC, message2.c_str(), message2.length(), 0, 0, true);
         esp_mqtt_client_enqueue(client, MQTT_TOPIC, message3.c_str(), message3.length(), 0, 0, true);
+        esp_mqtt_client_enqueue(client, MQTT_TOPIC, message4.c_str(), message4.length(), 0, 0, true);
+
     }
 
     // CUSTOM CODE END
