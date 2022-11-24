@@ -180,39 +180,17 @@ void loop() {
     // "variable-name {option1, option2} status=currentstatus"
     // in order for it to show up correctly on control center
     var_completed_puzzle.update(completed_puzzle ? "yes" : "no");
+    var_electromagnet_monitor.update(electromagnet_monitor ? "HIGH" : "LOW");
+    var_bookshelf_locked.update(bookshelf_locked ? "locked" : "unlocked");
+    var_fpga.update(FPGA_status ? "HIGH" : "LOW");
 
-    String message2 = "electromagnet_monitor {HIGH, LOW} status=";
-    if(electromagnet_monitor) {
-        message2 = message2 + "HIGH";
-    }
-    else {
-        message2 = message2 + "LOW";
-    }
-
-    String message3 = "bookshelf_locked {locked, unlocked} status=";
-    if(bookshelf_locked) {
-        message3 = message3 + "locked";
-    }
-    else {
-        message3 = message3 + "unlocked";
-    }
-
-    String message4 = "FPGA {HIGH, LOW} status=";
-    if(FPGA_status) {
-        message4 = message4 + "HIGH";
-    }
-    else {
-        message4 = message4 + "LOW";
-    }
-    
-    if (millis() - msg_time > 200 && client) { //change the value here to change how often it publishes
+    if (millis() - msg_time > 500 && client) { //change the value here to change how often it publishes
         msg_time = millis();
         Serial.println("publishing message");
 
         // Sending our created MQTT strings to the internet. Copy the line below for as many messages as you have. 
-        esp_mqtt_client_enqueue(client, MQTT_TOPIC, message2.c_str(), message2.length(), 0, 0, true);
-        esp_mqtt_client_enqueue(client, MQTT_TOPIC, message3.c_str(), message3.length(), 0, 0, true);
-        esp_mqtt_client_enqueue(client, MQTT_TOPIC, message4.c_str(), message4.length(), 0, 0, true);
+        String message("alive {yes} status=yes");
+        esp_mqtt_client_enqueue(client, MQTT_TOPIC, message.c_str(), message.length(), 0, 0, true);
 
     }
 
