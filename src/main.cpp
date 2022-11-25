@@ -20,6 +20,19 @@ bool electromagnet_monitor = HIGH;
 bool bookshelf_locked = true;
 bool FPGA_status = HIGH;
 
+// internal variables for template - DO NOT CHANGE
+unsigned int msg_time = 0;
+esp_mqtt_client_handle_t client = NULL;
+// end
+
+// declare monitored variables for ControlCenter
+ControlCenter::Variable var_completed_puzzle(client, "completed_puzzle", "yes, no", MQTT_TOPIC);
+ControlCenter::Variable var_electromagnet_monitor(client, "electromagnet_monitor", "HIGH, LOW", MQTT_TOPIC);
+ControlCenter::Variable var_bookshelf_locked(client, "bookshelf_locked", "locked, unlocked", MQTT_TOPIC);
+ControlCenter::Variable var_fpga(client, "FPGA", "HIGH, LOW", MQTT_TOPIC);
+
+const ControlCenter::Variable *variables[] = {&var_completed_puzzle, &var_electromagnet_monitor, &var_bookshelf_locked, &var_fpga};
+
 // BEGIN TEMPLATE CODE (DO NOT CHANGE)
 
 typedef void (*mqtt_callback_t)(esp_mqtt_event_handle_t);
@@ -42,8 +55,13 @@ static void mqtt_cb_message(esp_mqtt_event_handle_t event) {
         Serial.println("ignoring incomplete message (too long)");
         return;
     }
-    // Serial.printf("message arrived on topic %.*s: %.*s\n", event->topic_len, event->topic, event->data_len, event->data);
-    
+
+    if (strncmp(event->data, "refresh", event->data_len) == 0) {
+        Serial.println("refreshing variables");
+        for (const auto &variable : variables) {
+            variable->resend();
+        }
+    }
     // END TEMPLATE CODE
 
     // Here, we "listen" for certain messages and can act upon them. 
@@ -98,13 +116,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     esp_mqtt_event_handle_t event = static_cast<esp_mqtt_event_handle_t>(event_data);
     reinterpret_cast<mqtt_callback_t>(handler_args)(event);
 }
-
-unsigned int msg_time = 0;
-esp_mqtt_client_handle_t client = NULL;
-ControlCenter::Variable var_completed_puzzle(client, "completed_puzzle", "yes, no", MQTT_TOPIC);
-ControlCenter::Variable var_electromagnet_monitor(client, "electromagnet_monitor", "HIGH, LOW", MQTT_TOPIC);
-ControlCenter::Variable var_bookshelf_locked(client, "bookshelf_locked", "locked, unlocked", MQTT_TOPIC);
-ControlCenter::Variable var_fpga(client, "FPGA", "HIGH, LOW", MQTT_TOPIC);
 
 void setup() {
     Serial.begin(115200);

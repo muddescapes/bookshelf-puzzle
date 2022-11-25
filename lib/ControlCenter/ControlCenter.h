@@ -13,15 +13,20 @@ class Variable {
    public:
     Variable(const esp_mqtt_client_handle_t &client, const String name, const String options, const char *topic) : client(client), name(name), options(options), topic(topic){};
 
+    void resend() const {
+        String message = name + " {" + options + "} status=" + prev_status;
+
+        // send variable updates with qos 2
+        esp_mqtt_client_enqueue(client, topic, message.c_str(), message.length(), 2, 0, true);
+    }
+
     void update(const String &status) {
         if (status == prev_status) {
             return;
         }
 
-        String message = name + " {" + options + "} status=" + status;
-        // send variable updates with qos 2
-        esp_mqtt_client_enqueue(client, topic, message.c_str(), message.length(), 2, 0, true);
         prev_status = status;
+        resend();
     }
 };
 }  // namespace ControlCenter
